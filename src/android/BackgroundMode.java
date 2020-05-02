@@ -54,6 +54,8 @@ public class BackgroundMode extends CordovaPlugin {
 
     private Context context;
 
+    CallbackContext callback;
+
     // Event types for callbacks
     private enum Event { ACTIVATE, DEACTIVATE, FAILURE }
 
@@ -76,6 +78,10 @@ public class BackgroundMode extends CordovaPlugin {
     private ForegroundService service;
 
     String [] permissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
+
+    double interval = 10.0;
+    int afterLastUpdateMinutes = 2;
+    int minimumDistanceChanged = 200;
 
     // Used to (un)bind the service to with the activity
     private final ServiceConnection connection = new ServiceConnection()
@@ -111,6 +117,18 @@ public class BackgroundMode extends CordovaPlugin {
         boolean validAction = true;
         Log.i("Action", action);
 
+        System.out.println(args);
+
+
+
+        try {
+            interval = args.getLong(0);
+            afterLastUpdateMinutes = args.getInt(1);
+            minimumDistanceChanged = args.getInt(2);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
         switch (action)
         {
             case "enable":
@@ -121,6 +139,9 @@ public class BackgroundMode extends CordovaPlugin {
                 break;
             case "startGettingBackgroundLocation":
                 startLocationTracking();
+                break;
+            case "requestPermission":
+                PermissionHelper.requestPermissions(this, 0, permissions);
                 break;
             default:
                 validAction = false;
@@ -156,10 +177,15 @@ public class BackgroundMode extends CordovaPlugin {
             for (int r : grantResults) {
                 if (r == PackageManager.PERMISSION_DENIED) {
                     result = new PluginResult(PluginResult.Status.ILLEGAL_ACCESS_EXCEPTION);
+                    callback.sendPluginResult(result);
                     return;
                 }
             }
         }
+
+        result = new PluginResult(PluginResult.Status.OK);
+        callback.sendPluginResult(result);
+
         processForegroundService();
     }
 
@@ -332,7 +358,7 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void fireEvent (Event event, String params)
     {
-        String eventName = event.name().toLowerCase();
+		String eventName = event.name().toLowerCase();
         Boolean active   = event == Event.ACTIVATE;
 
         String str = String.format("%s._setActive(%b)",
@@ -348,4 +374,13 @@ public class BackgroundMode extends CordovaPlugin {
 
         cordova.getActivity().runOnUiThread(() -> webView.loadUrl("javascript:" + js));
     }
+
+
+    public void updateLocationData(JSONObject location) {
+
+        Log.i("update Anuj", "public void updateLocationData");
+
+//        cordova.getActivity().runOnUiThread(() -> callback.success(location));
+    }
+
 }

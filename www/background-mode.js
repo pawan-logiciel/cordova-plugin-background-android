@@ -28,6 +28,7 @@ exports.startGettingBackgroundLocation = function(params, successCallback, errCa
 
 	cordova.exec(successCallback, errCallback, 'BackgroundMode', 'startGettingBackgroundLocation', [interval, afterLastUpdateMinutes, minimumDistanceChanged]);
 };
+
 /**
  * Deactivates the background mode. When deactivated the application
  * will not stay awake while in background.
@@ -49,19 +50,19 @@ exports.disable = function()
  */
 exports.fireEvent = function (event)
 {
-    var args     = Array.apply(null, arguments).slice(1),
-        listener = this._listener[event];
+    // var args     = Array.apply(null, arguments).slice(1),
+    //     listener = this._listener[event];
 
-    if (!listener)
-        return;
+    // if (!listener)
+    //     return;
 
-    for (var i = 0; i < listener.length; i++)
-    {
-        var fn    = listener[i][0],
-            scope = listener[i][1];
+    // for (var i = 0; i < listener.length; i++)
+    // {
+    //     var fn    = listener[i][0],
+    //         scope = listener[i][1];
 
-        fn.apply(scope, args);
-    }
+    //     fn.apply(scope, args);
+    // }
 };
 
 /**
@@ -75,17 +76,17 @@ exports.fireEvent = function (event)
  */
 exports.on = function (event, callback, scope)
 {
-    if (typeof callback !== "function")
-        return;
+    // if (typeof callback !== "function")
+    //     return;
 
-    if (!this._listener[event])
-    {
-        this._listener[event] = [];
-    }
+    // if (!this._listener[event])
+    // {
+    //     this._listener[event] = [];
+    // }
 
-    var item = [callback, scope || window];
+    // var item = [callback, scope || window];
 
-    this._listener[event].push(item);
+    // this._listener[event].push(item);
 };
 
 /**
@@ -98,21 +99,29 @@ exports.on = function (event, callback, scope)
  */
 exports.un = function (event, callback)
 {
-    var listener = this._listener[event];
+    // var listener = this._listener[event];
 
-    if (!listener)
-        return;
+    // if (!listener)
+    //     return;
 
-    for (var i = 0; i < listener.length; i++)
-    {
-        var fn = listener[i][0];
+    // for (var i = 0; i < listener.length; i++)
+    // {
+    //     var fn = listener[i][0];
 
-        if (fn == callback)
-        {
-            listener.splice(i, 1);
-            break;
-        }
-    }
+    //     if (fn == callback)
+    //     {
+    //         listener.splice(i, 1);
+    //         break;
+    //     }
+    // }
+};
+exports._setActive = function(value)
+{
+    // if (this._isActive == value)
+    //     return;
+
+    // this._isActive = value;
+    // this._settings = value ? this._mergeObjects({}, this._defaults) : {};
 };
 
 /**
