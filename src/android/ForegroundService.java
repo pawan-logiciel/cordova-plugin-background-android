@@ -35,6 +35,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.app.NotificationChannel;
+import android.util.Log;
 
 import org.json.JSONObject;
 
@@ -173,29 +174,39 @@ public class ForegroundService extends Service {
     {
         // use channelid for Oreo and higher
         String CHANNEL_ID = "cordova-plugin-background-mode-id";
+
+        Log.i("Build.VERSION.SDK_INT", "ANuj");
+
+        System.out.println(Build.VERSION.SDK_INT);
+
         if(Build.VERSION.SDK_INT >= 26){
-        // The user-visible name of the channel.
-        CharSequence name = "cordova-plugin-background-mode";
-        // The user-visible description of the channel.
-        String description = "cordova-plugin-background-moden notification";
+            // The user-visible name of the channel.
+            CharSequence name = "JobPogress";
+            // The user-visible description of the channel.
+            String description = "App is using location in background";
 
-        int importance = NotificationManager.IMPORTANCE_LOW;
+            int importance = NotificationManager.IMPORTANCE_LOW;
 
-        NotificationChannel mChannel = new NotificationChannel(CHANNEL_ID, name,importance);
+            NotificationChannel mChannel = new NotificationChannel(CHANNEL_ID, name,importance);
 
-        // Configure the notification channel.
-        mChannel.setDescription(description);
+            // Configure the notification channel.
+            mChannel.setDescription(description);
 
-        getNotificationManager().createNotificationChannel(mChannel);
+            getNotificationManager().createNotificationChannel(mChannel);
         }
         String title    = settings.optString("title", NOTIFICATION_TITLE);
         String text     = settings.optString("text", NOTIFICATION_TEXT);
         boolean bigText = settings.optBoolean("bigText", false);
 
+
+
         Context context = getApplicationContext();
         String pkgName  = context.getPackageName();
         Intent intent   = context.getPackageManager()
                 .getLaunchIntentForPackage(pkgName);
+
+        intent.putExtra("title", title);
+        intent.putExtra("message", text);
 
         Notification.Builder notification = new Notification.Builder(context)
                 .setContentTitle(title)
@@ -229,6 +240,7 @@ public class ForegroundService extends Service {
         }
 
         return notification.build();
+
     }
 
     /**
@@ -259,7 +271,7 @@ public class ForegroundService extends Service {
     {
         String icon = settings.optString("icon", NOTIFICATION_ICON);
 
-        int resId = getIconResId(icon, "mipmap");
+        int resId = getIconResId(icon, "mipmap/ic_launcher");
 
         if (resId == 0) {
             resId = getIconResId(icon, "drawable");

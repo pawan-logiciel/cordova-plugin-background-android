@@ -1,18 +1,26 @@
+package de.appplant.cordova.plugin.background;
+
+import android.Manifest;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 
+import java.util.Timer;
+import java.util.TimerTask;
 
-public class BookingTrackingService extends Service implements LocationListener {
+public class LocationManagerService extends Service implements LocationListener {
 
-    private static final String TAG = "BookingTrackingService";
+    private static final String TAG = "LocationManagerService";
     private Context context;
     boolean isGPSEnable = false;
     boolean isNetworkEnable = false;
@@ -21,7 +29,7 @@ public class BookingTrackingService extends Service implements LocationListener 
     Location location;
     private Handler mHandler = new Handler();
     private Timer mTimer = null;
-    long notify_interval = 30000;
+    long notify_interval = 2000;
 
     public double track_lat = 0.0;
     public double track_lng = 0.0;
@@ -40,8 +48,10 @@ public class BookingTrackingService extends Service implements LocationListener 
 
         System.out.println("public void onCreate()");
 
+
+
         mTimer = new Timer();
-        mTimer.schedule(new TimerTaskToGetLocation(), 5, notify_interval);
+        mTimer.schedule(new TimerTaskToGetLocation(), 1, notify_interval);
         intent = new Intent(str_receiver);
     }
 
@@ -57,7 +67,7 @@ public class BookingTrackingService extends Service implements LocationListener 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.e(TAG, "onDestroy <<");
+        Log.e(TAG, "onDestroy Location Service");
         if (mTimer != null) {
             mTimer.cancel();
         }
@@ -67,20 +77,14 @@ public class BookingTrackingService extends Service implements LocationListener 
         System.out.println("public void trackLocation()");
         Log.e(TAG, "trackLocation");
         String TAG_TRACK_LOCATION = "trackLocation";
-        Map<String, String> params = new HashMap<>();
-        params.put("latitude", "" + track_lat);
-        params.put("longitude", "" + track_lng);
-
-        Log.e(TAG, "param_track_location >> " + params.toString());
 
         stopSelf();
         mTimer.cancel();
-
     }
 
     @Override
     public void onLocationChanged(Location location) {
-
+        fn_update(location);
     }
 
     @Override
@@ -112,22 +116,32 @@ public class BookingTrackingService extends Service implements LocationListener 
             Log.e(TAG, "CAN'T GET LOCATION");
             stopSelf();
         } else {
-            if (isNetworkEnable) {
-                location = null;
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);
-                if (locationManager != null) {
-                    location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                    if (location != null) {
+            // if (isNetworkEnable) {
+            //     location = null;
+            //     if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            //         // TODO: Consider calling
+            //         //    ActivityCompat#requestPermissions
+            //         // here to request the missing permissions, and then overriding
+            //         //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //         //                                          int[] grantResults)
+            //         // to handle the case where the user grants the permission. See the documentation
+            //         // for ActivityCompat#requestPermissions for more details.
+            //         return;
+            //     }
+            //     locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);
+            //     if (locationManager != null) {
+            //         location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            //         if (location != null) {
 
-                        Log.e(TAG, "isNetworkEnable latitude" + location.getLatitude() + "\nlongitude" + location.getLongitude() + "");
-                        latitude = location.getLatitude();
-                        longitude = location.getLongitude();
-                        track_lat = latitude;
-                        track_lng = longitude;
-//                        fn_update(location);
-                    }
-                }
-            }
+            //             Log.e(TAG, "isNetworkEnable latitude" + location.getLatitude() + "\nlongitude" + location.getLongitude() + "");
+            //             latitude = location.getLatitude();
+            //             longitude = location.getLongitude();
+            //             track_lat = latitude;
+            //             track_lng = longitude;
+            //             fn_update(location);
+            //         }
+            //     }
+            // }
 
             if (isGPSEnable) {
                 location = null;
@@ -140,7 +154,7 @@ public class BookingTrackingService extends Service implements LocationListener 
                         longitude = location.getLongitude();
                         track_lat = latitude;
                         track_lng = longitude;
-//                        fn_update(location);
+                        fn_update(location);
                     }
                 }
             }
@@ -167,10 +181,9 @@ public class BookingTrackingService extends Service implements LocationListener 
         }
     }
 
-//    private void fn_update(Location location) {
-//
-//        intent.putExtra("latutide", location.getLatitude() + "");
-//        intent.putExtra("longitude", location.getLongitude() + "");
-//        sendBroadcast(intent);
-//    }
+    private void fn_update(Location location) {
+        intent.putExtra("latutide", location.getLatitude() + "");
+        intent.putExtra("longitude", location.getLongitude() + "");
+        sendBroadcast(intent);
+    }
 }

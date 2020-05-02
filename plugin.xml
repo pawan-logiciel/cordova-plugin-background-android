@@ -61,9 +61,6 @@
             <feature name="BackgroundMode">
                 <param name="android-package" value="de.appplant.cordova.plugin.background.BackgroundMode"/>
             </feature>
-            <feature name="BackgroundModeExt">
-                <param name="android-package" value="de.appplant.cordova.plugin.background.BackgroundModeExt"/>
-            </feature>
         </config-file>
 
         <config-file target="res/xml/config.xml" parent="/*">
@@ -75,9 +72,9 @@
         </config-file>
 		
 		<config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <service android:name="de.appplant.cordova.plugin.background.BookingTrackingService"/>
+            <service android:name="de.appplant.cordova.plugin.background.LocationManagerService"/>
             <receiver
-                android:name="de.appplant.cordova.plugin.background.AlarmReceive"
+                android:name="de.appplant.cordova.plugin.background.BroadCasterService"
                 android:exported="false">
                 <intent-filter>
                     <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -86,7 +83,7 @@
         </config-file>
 
         <config-file target="AndroidManifest.xml" parent="/manifest">
-            <uses-permission android:name="android.permission.WAKE_LOCK" />
+            <uses-permission android:name="android.permission.WAKE_LOCK" />ACCESS_BACKGROUND_LOCATION
             <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
             <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
         </config-file>
@@ -94,21 +91,17 @@
         <source-file
             src="src/android/BackgroundMode.java"
             target-dir="src/de/appplant/cordova/plugin/background" />
-
-        <source-file
-            src="src/android/BackgroundModeExt.java"
-            target-dir="src/de/appplant/cordova/plugin/background" />
-
+			
         <source-file
             src="src/android/ForegroundService.java"
             target-dir="src/de/appplant/cordova/plugin/background" />
 
         <source-file
-            src="src/android/AlarmReceive.java"
+            src="src/android/BroadCasterService.java"
             target-dir="src/de/appplant/cordova/plugin/background" />
 
         <source-file
-            src="src/android/BookingTrackingService.java"
+            src="src/android/LocationManagerService.java"
             target-dir="src/de/appplant/cordova/plugin/background" />
     </platform>
 

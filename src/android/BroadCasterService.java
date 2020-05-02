@@ -6,13 +6,13 @@ import android.content.Intent;
 import android.util.Log;
 
 
-public class AlarmReceive extends BroadcastReceiver {
+public class BroadCasterService extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.e("Service_call_"  , "You are in AlarmReceive class.");
-        Intent background = new Intent(context, BookingTrackingService.class);
-        Log.e("AlarmReceive ","testing called broadcast called");
+        Log.e("Service_call_"  , "You are in BroadCasterService class.");
+        Intent background = new Intent(context, LocationManagerService.class);
+        Log.e("BroadCasterService ","testing called broadcast called");
         context.startService(background);
     }
 }

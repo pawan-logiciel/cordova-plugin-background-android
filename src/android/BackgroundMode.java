@@ -28,20 +28,23 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.IBinder;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
-
+import org.apache.cordova.PermissionHelper;
 import de.appplant.cordova.plugin.background.ForegroundService.ForegroundBinder;
-import de.appplant.cordova.plugin.background.AlarmReceive;
 import android.app.PendingIntent;
-
+import android.util.Log;
+import android.Manifest;
+import static android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD;
 
 import static android.content.Context.BIND_AUTO_CREATE;
-import static de.appplant.cordova.plugin.background.BackgroundModeExt.clearKeyguardFlags;
 
 public class BackgroundMode extends CordovaPlugin {
 
@@ -71,6 +74,8 @@ public class BackgroundMode extends CordovaPlugin {
 
     // Service that keeps the app awake
     private ForegroundService service;
+
+    String [] permissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
 
     // Used to (un)bind the service to with the activity
     private final ServiceConnection connection = new ServiceConnection()
@@ -104,19 +109,17 @@ public class BackgroundMode extends CordovaPlugin {
                             CallbackContext callback)
     {
         boolean validAction = true;
+        Log.i("Action", action);
 
         switch (action)
         {
-            case "configure":
-                configure(args.optJSONObject(0), args.optBoolean(1));
-                break;
             case "enable":
                 enableMode();
                 break;
             case "disable":
                 disableMode();
                 break;
-            case "starttracking":
+            case "startGettingBackgroundLocation":
                 startLocationTracking();
                 break;
             default:
@@ -135,12 +138,49 @@ public class BackgroundMode extends CordovaPlugin {
     @SuppressLint("ServiceCast")
     public  void startLocationTracking()
     {
+
+        if(hasPermisssion()){
+            processForegroundService();
+        }else  {
+            PermissionHelper.requestPermissions(this, 0, permissions);
+            startService();
+        }
+    }
+
+    public void onRequestPermissionResult(int requestCode, String[] permissions,
+                                          int[] grantResults) throws JSONException
+    {
+        PluginResult result;
+        //This is important if we're using Cordova without using Cordova, but we have the geolocation plugin installed
+        if(context != null) {
+            for (int r : grantResults) {
+                if (r == PackageManager.PERMISSION_DENIED) {
+                    result = new PluginResult(PluginResult.Status.ILLEGAL_ACCESS_EXCEPTION);
+                    return;
+                }
+            }
+        }
+        processForegroundService();
+    }
+
+    public void processForegroundService() {
         Activity context = cordova.getActivity();
         alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, AlarmReceive.class);
+        Intent intent = new Intent(context, BroadCasterService.class);
         pendingIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
         alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 30000,
                 pendingIntent);
+    }
+
+    public boolean hasPermisssion() {
+        for(String p : permissions)
+        {
+            if(!PermissionHelper.hasPermission(this, p))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -167,6 +207,11 @@ public class BackgroundMode extends CordovaPlugin {
         clearKeyguardFlags(cordova.getActivity());
     }
 
+	void clearKeyguardFlags (Activity app)
+    {
+        app.runOnUiThread(() -> app.getWindow().clearFlags(FLAG_DISMISS_KEYGUARD));
+	}
+	
     /**
      * Called when the activity will start interacting with the user.
      *
@@ -207,22 +252,6 @@ public class BackgroundMode extends CordovaPlugin {
     private void disableMode()
     {
         stopService();
-        isDisabled = true;
-    }
-
-    /**
-     * Update the default settings and configure the notification.
-     *
-     * @param settings The settings
-     * @param update A truthy value means to update the running service.
-     */
-    private void configure(JSONObject settings, boolean update)
-    {
-        if (update) {
-            updateNotification(settings);
-        } else {
-            setDefaultSettings(settings);
-        }
     }
 
     /**
@@ -262,9 +291,6 @@ public class BackgroundMode extends CordovaPlugin {
     {
         Activity context = cordova.getActivity();
 
-        if (isDisabled || isBind)
-            return;
-
         Intent intent = new Intent(context, ForegroundService.class);
 
         try {
@@ -285,13 +311,15 @@ public class BackgroundMode extends CordovaPlugin {
     private void stopService()
     {
         Activity context = cordova.getActivity();
-        Intent intent    = new Intent(context, ForegroundService.class);
+		Intent intent    = new Intent(context, ForegroundService.class);
+		Intent broadCasterIntent    = new Intent(context, BroadCasterService.class);
 
         if (!isBind) return;
 
         fireEvent(Event.DEACTIVATE, null);
         context.unbindService(connection);
         context.stopService(intent);
+        context.stopService(broadCasterIntent);
 
         isBind = false;
     }
