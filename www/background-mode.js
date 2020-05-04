@@ -21,7 +21,6 @@ var exec    = require('cordova/exec'),
 
 exports.startGettingBackgroundLocation = function(params, successCallback, errCallback)
 {
-
 	var interval = params.interval;
 	var afterLastUpdateMinutes = params.after_last_update_minutes;
 	var minimumDistanceChanged = params.minimum_distance_changed;

@@ -175,10 +175,6 @@ public class ForegroundService extends Service {
         // use channelid for Oreo and higher
         String CHANNEL_ID = "cordova-plugin-background-mode-id";
 
-        Log.i("Build.VERSION.SDK_INT", "ANuj");
-
-        System.out.println(Build.VERSION.SDK_INT);
-
         if(Build.VERSION.SDK_INT >= 26){
             // The user-visible name of the channel.
             CharSequence name = "JobPogress";

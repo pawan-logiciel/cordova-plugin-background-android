@@ -54,7 +54,7 @@ public class BackgroundMode extends CordovaPlugin {
 
     private Context context;
 
-    CallbackContext callback;
+    private static CallbackContext callback;
 
     // Event types for callbacks
     private enum Event { ACTIVATE, DEACTIVATE, FAILURE }
@@ -79,8 +79,8 @@ public class BackgroundMode extends CordovaPlugin {
 
     String [] permissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
 
-    double interval = 10.0;
-    int afterLastUpdateMinutes = 2;
+    long interval =  10 * 60 * 1000;
+    int afterLastUpdateMinutes = 2 * 60 * 1000;
     int minimumDistanceChanged = 200;
 
     // Used to (un)bind the service to with the activity
@@ -96,7 +96,7 @@ public class BackgroundMode extends CordovaPlugin {
         @Override
         public void onServiceDisconnected (ComponentName name)
         {
-            fireEvent(Event.FAILURE, "'service disconnected'");
+//            fireEvent(Event.FAILURE, "'service disconnected'");
         }
     };
 
@@ -105,29 +105,17 @@ public class BackgroundMode extends CordovaPlugin {
      *
      * @param action   The action to execute.
      * @param args     The exec() arguments.
-     * @param callback The callback context used when
+     * @param callbackContext The callback context used when
      *                 calling back into JavaScript.
      *
      * @return Returning false results in a "MethodNotFound" error.
      */
     @Override
     public boolean execute (String action, JSONArray args,
-                            CallbackContext callback)
+                            CallbackContext callbackContext)
     {
+        this.callback = callbackContext;
         boolean validAction = true;
-        Log.i("Action", action);
-
-        System.out.println(args);
-
-
-
-        try {
-            interval = args.getLong(0);
-            afterLastUpdateMinutes = args.getInt(1);
-            minimumDistanceChanged = args.getInt(2);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
 
         switch (action)
         {
@@ -138,19 +126,23 @@ public class BackgroundMode extends CordovaPlugin {
                 disableMode();
                 break;
             case "startGettingBackgroundLocation":
+
+                try {
+                    interval = args.getLong(0);
+                    afterLastUpdateMinutes = args.getInt(1);
+                    minimumDistanceChanged = args.getInt(2);
+
+                    // Update Values to Location service.
+                    LocationManagerService locationService = new LocationManagerService();
+                    locationService.updatePluginVariables(interval, afterLastUpdateMinutes, minimumDistanceChanged);
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
                 startLocationTracking();
-                break;
-            case "requestPermission":
-                PermissionHelper.requestPermissions(this, 0, permissions);
                 break;
             default:
                 validAction = false;
-        }
-
-        if (validAction) {
-            callback.success();
-        } else {
-            callback.error("Invalid action: " + action);
         }
 
         return validAction;
@@ -161,10 +153,10 @@ public class BackgroundMode extends CordovaPlugin {
     {
 
         if(hasPermisssion()){
+            startService();
             processForegroundService();
         }else  {
             PermissionHelper.requestPermissions(this, 0, permissions);
-            startService();
         }
     }
 
@@ -176,15 +168,10 @@ public class BackgroundMode extends CordovaPlugin {
         if(context != null) {
             for (int r : grantResults) {
                 if (r == PackageManager.PERMISSION_DENIED) {
-                    result = new PluginResult(PluginResult.Status.ILLEGAL_ACCESS_EXCEPTION);
-                    callback.sendPluginResult(result);
                     return;
                 }
             }
         }
-
-        result = new PluginResult(PluginResult.Status.OK);
-        callback.sendPluginResult(result);
 
         processForegroundService();
     }
@@ -281,33 +268,12 @@ public class BackgroundMode extends CordovaPlugin {
     }
 
     /**
-     * Update the default settings for the notification.
-     *
-     * @param settings The new default settings
-     */
-    private void setDefaultSettings(JSONObject settings)
-    {
-        defaultSettings = settings;
-    }
-
-    /**
      * Returns the settings for the new/updated notification.
      */
     static JSONObject getSettings () {
         return defaultSettings;
     }
 
-    /**
-     * Update the notification.
-     *
-     * @param settings The config settings
-     */
-    private void updateNotification(JSONObject settings)
-    {
-        if (isBind) {
-            service.updateNotification(settings);
-        }
-    }
 
     /**
      * Bind the activity to a background service and put them into foreground
@@ -321,10 +287,9 @@ public class BackgroundMode extends CordovaPlugin {
 
         try {
             context.bindService(intent, connection, BIND_AUTO_CREATE);
-            fireEvent(Event.ACTIVATE, null);
             context.startService(intent);
         } catch (Exception e) {
-            fireEvent(Event.FAILURE, String.format("'%s'", e.getMessage()));
+            //
         }
 
         isBind = true;
@@ -342,7 +307,6 @@ public class BackgroundMode extends CordovaPlugin {
 
         if (!isBind) return;
 
-        fireEvent(Event.DEACTIVATE, null);
         context.unbindService(connection);
         context.stopService(intent);
         context.stopService(broadCasterIntent);
@@ -350,37 +314,11 @@ public class BackgroundMode extends CordovaPlugin {
         isBind = false;
     }
 
-    /**
-     * Fire vent with some parameters inside the web view.
-     *
-     * @param event The name of the event
-     * @param params Optional arguments for the event
-     */
-    private void fireEvent (Event event, String params)
-    {
-		String eventName = event.name().toLowerCase();
-        Boolean active   = event == Event.ACTIVATE;
-
-        String str = String.format("%s._setActive(%b)",
-                JS_NAMESPACE, active);
-
-        str = String.format("%s;%s.on('%s', %s)",
-                str, JS_NAMESPACE, eventName, params);
-
-        str = String.format("%s;%s.fireEvent('%s',%s);",
-                str, JS_NAMESPACE, eventName, params);
-
-        final String js = str;
-
-        cordova.getActivity().runOnUiThread(() -> webView.loadUrl("javascript:" + js));
-    }
-
 
     public void updateLocationData(JSONObject location) {
-
-        Log.i("update Anuj", "public void updateLocationData");
-
-//        cordova.getActivity().runOnUiThread(() -> callback.success(location));
+        PluginResult result = new PluginResult(PluginResult.Status.OK, location);
+        result.setKeepCallback(true);
+        callback.sendPluginResult(result);
     }
 
 }

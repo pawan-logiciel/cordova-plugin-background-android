@@ -32,12 +32,24 @@ public class LocationManagerService extends Service implements LocationListener 
     Location location;
     private Handler mHandler = new Handler();
     private Timer mTimer = null;
-    long notify_interval = 2000;
+
+    long notify_interval = 1 * 60 * 1000; // Converted 1 minutes to miliSeconds
+    int minTime = 1 * 60 * 1000; // Min Time when last location fetched
+    int minDistance = 200;
+
+
 
     public double track_lat = 0.0;
     public double track_lng = 0.0;
     public static String str_receiver = "servicetutorial.service.receiver";
     Intent intent;
+
+
+    public void updatePluginVariables(long interval, int afterLastUpdateMinutes, int minimumDistanceChanged) {
+        notify_interval = notify_interval * interval;
+        minTime = minTime * afterLastUpdateMinutes;
+        minDistance = minimumDistanceChanged;
+    }
 
     @Nullable
     @Override
@@ -48,11 +60,6 @@ public class LocationManagerService extends Service implements LocationListener 
     @Override
     public void onCreate() {
         super.onCreate();
-
-        System.out.println("public void onCreate()");
-
-
-
         mTimer = new Timer();
         mTimer.schedule(new TimerTaskToGetLocation(), 1, notify_interval);
         intent = new Intent(str_receiver);
@@ -60,27 +67,20 @@ public class LocationManagerService extends Service implements LocationListener 
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
         this.context = this;
-
-
         return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.e(TAG, "onDestroy Location Service");
         if (mTimer != null) {
             mTimer.cancel();
         }
     }
 
     private void trackLocation() {
-        System.out.println("public void trackLocation()");
-        Log.e(TAG, "trackLocation");
         String TAG_TRACK_LOCATION = "trackLocation";
-
         stopSelf();
         mTimer.cancel();
     }
@@ -113,48 +113,24 @@ public class LocationManagerService extends Service implements LocationListener 
 
     private void fn_getlocation() throws JSONException {
 
-        System.out.println("public void fn_getlocation()");
-
         locationManager = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
         isGPSEnable = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
         isNetworkEnable = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
 
         if (!isGPSEnable && !isNetworkEnable) {
-            Log.e(TAG, "CAN'T GET LOCATION");
             stopSelf();
         } else {
-             if (isNetworkEnable) {
-                 location = null;
-                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                     // TODO: Consider calling
-                     //    ActivityCompat#requestPermissions
-                     // here to request the missing permissions, and then overriding
-                     //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                     //                                          int[] grantResults)
-                     // to handle the case where the user grants the permission. See the documentation
-                     // for ActivityCompat#requestPermissions for more details.
-                     return;
-                 }
-                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);
-                 if (locationManager != null) {
-                     location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                     if (location != null) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
 
-                         Log.e(TAG, "isNetworkEnable latitude" + location.getLatitude() + "\nlongitude" + location.getLongitude() + "");
-                         latitude = location.getLatitude();
-                         longitude = location.getLongitude();
-                         track_lat = latitude;
-                         track_lng = longitude;
-                         fn_update(location);
-                     }
-                 }
-             }else if(isGPSEnable) {
-                location = null;
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);
+            location = null;
+
+            if (isGPSEnable) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, minDistance, this);
                 if (locationManager != null) {
                     location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                     if (location != null) {
-                        Log.e(TAG, "isGPSEnable latitude" + location.getLatitude() + "\nlongitude" + location.getLongitude() + "");
                         latitude = location.getLatitude();
                         longitude = location.getLongitude();
                         track_lat = latitude;
@@ -162,20 +138,26 @@ public class LocationManagerService extends Service implements LocationListener 
                         fn_update(location);
                     }
                 }
-            }
-
-            Log.e(TAG, "START SERVICE");
+            }else if (isNetworkEnable) {
+                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, minTime, minDistance, this);
+                 if (locationManager != null) {
+                     location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                     if (location != null) {
+                         latitude = location.getLatitude();
+                         longitude = location.getLongitude();
+                         track_lat = latitude;
+                         track_lng = longitude;
+                         fn_update(location);
+                     }
+                 }
+             }
             trackLocation();
-
         }
     }
 
     private class TimerTaskToGetLocation extends TimerTask {
         @Override
         public void run() {
-
-            System.out.println("public void TimerTaskToGetLocation()");
-
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
@@ -192,15 +174,13 @@ public class LocationManagerService extends Service implements LocationListener 
 
     private void fn_update(Location location) throws JSONException {
 
-        Log.i("fn_update", "fn_update");
-
         intent.putExtra("latutide", location.getLatitude() + "");
         intent.putExtra("longitude", location.getLongitude() + "");
         sendBroadcast(intent);
 
         JSONObject loc = new JSONObject() {{
-            put("latutide", location.getLatitude());
-            put("longitude", location.getLongitude());
+            put("lat", location.getLatitude());
+            put("long", location.getLongitude());
         }};
 
         BackgroundMode bgMode = new BackgroundMode();
