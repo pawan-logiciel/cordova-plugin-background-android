@@ -79,9 +79,9 @@ public class BackgroundMode extends CordovaPlugin {
 
     String [] permissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
 
-    long interval =  10 * 60 * 1000;
-    int afterLastUpdateMinutes = 2 * 60 * 1000;
-    int minimumDistanceChanged = 200;
+    long interval =  10 * 60 * 1000; // Converted 1 minutes to miliSeconds
+    int afterLastUpdateMinutes = 2 * 60 * 1000; // Min Time when last location fetched
+    int minimumDistanceChanged = 200; // In Meters
 
     // Used to (un)bind the service to with the activity
     private final ServiceConnection connection = new ServiceConnection()
@@ -117,7 +117,7 @@ public class BackgroundMode extends CordovaPlugin {
         this.callback = callbackContext;
         boolean validAction = true;
 
-        switch (action)
+		switch (action)
         {
             case "enable":
                 enableMode();
