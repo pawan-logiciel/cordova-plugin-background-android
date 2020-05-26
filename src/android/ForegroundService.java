@@ -29,13 +29,17 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.app.NotificationChannel;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.graphics.Color;
 
 import org.json.JSONObject;
 
@@ -48,6 +52,8 @@ import static android.os.PowerManager.PARTIAL_WAKE_LOCK;
  */
 public class ForegroundService extends Service {
 
+    public static final String COLOR = "color";
+
     // Fixed ID for the 'foreground' notification
     public static final int NOTIFICATION_ID = -574543954;
 
@@ -57,7 +63,7 @@ public class ForegroundService extends Service {
 
     // Default text of the background notification
     private static final String NOTIFICATION_TEXT =
-            "Doing heavy tasks.";
+            "JobProgress is using location in background";
 
     // Default icon of the background notification
     private static final String NOTIFICATION_ICON = "icon";
@@ -126,11 +132,14 @@ public class ForegroundService extends Service {
     @SuppressLint("WakelockTimeout")
     private void keepAwake()
     {
+
+        Bundle extras = new Bundle();
+        extras.putString("icon", "icon");
         JSONObject settings = BackgroundMode.getSettings();
         boolean isSilent    = settings.optBoolean("silent", false);
 
         if (!isSilent) {
-            startForeground(NOTIFICATION_ID, makeNotification());
+            startForeground(NOTIFICATION_ID, makeNotification(extras));
         }
 
         PowerManager pm = (PowerManager)getSystemService(POWER_SERVICE);
@@ -159,9 +168,9 @@ public class ForegroundService extends Service {
      * Create a notification as the visible part to be able to put the service
      * in a foreground state by using the default settings.
      */
-    private Notification makeNotification()
+    private Notification makeNotification(Bundle extras)
     {
-        return makeNotification(BackgroundMode.getSettings());
+        return makeNotification(BackgroundMode.getSettings(), extras);
     }
 
     /**
@@ -170,7 +179,7 @@ public class ForegroundService extends Service {
      *
      * @param settings The config settings
      */
-    private Notification makeNotification (JSONObject settings)
+    private Notification makeNotification (JSONObject settings, Bundle extras)
     {
         // use channelid for Oreo and higher
         String CHANNEL_ID = "cordova-plugin-background-mode-id";
@@ -204,14 +213,13 @@ public class ForegroundService extends Service {
         intent.putExtra("title", title);
         intent.putExtra("message", text);
 
-        Notification.Builder notification = new Notification.Builder(context)
+        NotificationCompat.Builder notification = new NotificationCompat.Builder(context)
                 .setContentTitle(title)
                 .setContentText(text)
-                .setOngoing(true)
-                .setSmallIcon(getIconResId(settings));
+                .setOngoing(true);
 
         if(Build.VERSION.SDK_INT >= 26){
-                   notification.setChannelId(CHANNEL_ID);
+            notification.setChannelId(CHANNEL_ID);
         }
 
         if (settings.optBoolean("hidden", true)) {
@@ -219,11 +227,39 @@ public class ForegroundService extends Service {
         }
 
         if (bigText || text.contains("\n")) {
-            notification.setStyle(
-                    new Notification.BigTextStyle().bigText(text));
+//            notification.setStyle(
+//                    new Notification.BigTextStyle().bigText(text));
         }
 
-        setColor(notification, settings);
+        SharedPreferences prefs = context.getSharedPreferences("de.appplant.cordova.plugin.background", Context.MODE_PRIVATE);
+        String localIconColor = prefs.getString("iconColor", null);
+
+        /*
+         * Notification Icon Color
+         *
+         * Sets the small-icon background color of the notification.
+         * To use, add the `iconColor` key to plugin android options
+         *
+         */
+        setNotificationIconColor(extras.getString(COLOR), notification, localIconColor);
+
+        /*
+         * Notification Icon
+         *
+         * Sets the small-icon of the notification.
+         *
+         * - checks the plugin options for `icon` key
+         * - if none, uses the application icon
+         *
+         * The icon value must be a string that maps to a drawable resource.
+         * If no resource is found, falls
+         *
+         */
+        String packageName = context.getPackageName();
+        Resources resources = context.getResources();
+        String localIcon = prefs.getString("icon", null);
+        setNotificationSmallIcon(context, extras, packageName, resources, notification, localIcon);
+
 
         if (intent != null && settings.optBoolean("resume")) {
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -239,63 +275,55 @@ public class ForegroundService extends Service {
 
     }
 
-    /**
-     * Update the notification.
-     *
-     * @param settings The config settings
-     */
-    protected void updateNotification (JSONObject settings)
-    {
-        boolean isSilent = settings.optBoolean("silent", false);
 
-        if (isSilent) {
-            stopForeground(true);
-            return;
+    private void setNotificationIconColor(String color, NotificationCompat.Builder mBuilder, String localIconColor) {
+        int iconColor = 0;
+        if (color != null && !"".equals(color)) {
+            try {
+                iconColor = Color.parseColor(color);
+            } catch (IllegalArgumentException e) {
+                Log.e("LOG_TAG", "couldn't parse color from android options");
+            }
+        } else if (localIconColor != null && !"".equals(localIconColor)) {
+            try {
+                iconColor = Color.parseColor(localIconColor);
+            } catch (IllegalArgumentException e) {
+                Log.e("LOG_TAG", "couldn't parse color from android options");
+            }
         }
-
-        Notification notification = makeNotification(settings);
-        getNotificationManager().notify(NOTIFICATION_ID, notification);
-
+        if (iconColor != 0) {
+            mBuilder.setColor(iconColor);
+        }
     }
 
-    /**
-     * Retrieves the resource ID of the app icon.
-     *
-     * @param settings A JSON dict containing the icon name.
-     */
-    private int getIconResId (JSONObject settings)
-    {
-        String icon = settings.optString("icon", NOTIFICATION_ICON);
+    private void setNotificationSmallIcon(Context context, Bundle extras, String packageName, Resources resources,
+                                          NotificationCompat.Builder mBuilder, String localIcon) {
+        int iconId = 0;
+        String icon = extras.getString("icon");
 
-        int resId = getIconResId(icon, "mipmap/ic_launcher");
-
-        if (resId == 0) {
-            resId = getIconResId(icon, "drawable");
+        if (icon != null && !"".equals(icon)) {
+            iconId = getImageId(resources, icon, packageName);
+            Log.d("LOG_TAG", "using icon from plugin options");
+        } else if (localIcon != null && !"".equals(localIcon)) {
+            iconId = getImageId(resources, localIcon, packageName);
+            Log.d("LOG_TAG", "using icon from plugin options");
+        }
+        if (iconId == 0) {
+            Log.d("LOG_TAG", "no icon resource found - using application icon");
+            iconId = context.getApplicationInfo().icon;
+            Log.d("Icon ID Anuj", String.valueOf(iconId));
         }
 
-        return resId;
+        mBuilder.setSmallIcon(iconId);
     }
 
-    /**
-     * Retrieve resource id of the specified icon.
-     *
-     * @param icon The name of the icon.
-     * @param type The resource type where to look for.
-     *
-     * @return The resource id or 0 if not found.
-     */
-    private int getIconResId (String icon, String type)
-    {
-        Resources res  = getResources();
-        String pkgName = getPackageName();
-
-        int resId = res.getIdentifier(icon, type, pkgName);
-
-        if (resId == 0) {
-            resId = res.getIdentifier("icon", type, pkgName);
+    
+    private int getImageId(Resources resources, String icon, String packageName) {
+        int iconId = resources.getIdentifier(icon, "drawable", packageName);
+        if (iconId == 0) {
+            iconId = resources.getIdentifier(icon, "mipmap", packageName);
         }
-
-        return resId;
+        return iconId;
     }
 
     /**
@@ -305,7 +333,7 @@ public class ForegroundService extends Service {
      * @param settings A JSON dict containing the color definition (red: FF0000)
      */
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private void setColor (Notification.Builder notification, JSONObject settings)
+    private void setColor (NotificationCompat.Builder notification, JSONObject settings)
     {
 
         String hex = settings.optString("color", null);
@@ -328,4 +356,6 @@ public class ForegroundService extends Service {
     {
         return (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
     }
+
+
 }
