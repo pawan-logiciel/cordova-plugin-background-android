@@ -24,8 +24,9 @@ exports.startGettingBackgroundLocation = function(params, successCallback, errCa
 	var interval = params.interval;
 	var afterLastUpdateMinutes = params.after_last_update_minutes;
 	var minimumDistanceChanged = params.minimum_distance_changed;
+	var timeSlot = params.time_slot;
 
-	cordova.exec(successCallback, errCallback, 'BackgroundMode', 'startGettingBackgroundLocation', [interval, afterLastUpdateMinutes, minimumDistanceChanged]);
+	cordova.exec(successCallback, errCallback, 'BackgroundMode', 'startGettingBackgroundLocation', [interval, afterLastUpdateMinutes, minimumDistanceChanged, timeSlot]);
 };
 
 /**
