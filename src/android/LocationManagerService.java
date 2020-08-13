@@ -13,7 +13,6 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -33,17 +32,14 @@ public class LocationManagerService extends Service implements LocationListener 
     private Handler mHandler = new Handler();
     private Timer mTimer = null;
 
-    long notify_interval = 1 * 60 * 1000; // Converted 1 minutes to miliSeconds
+    long notify_interval = 1 * 60 * 1000; // Converted 10 minutes to miliSeconds
     int minTime = 1 * 60 * 1000; // Min Time when last location fetched
     int minDistance = 200;
 
-
-
-    public double track_lat = 0.0;
-    public double track_lng = 0.0;
-    public static String str_receiver = "servicetutorial.service.receiver";
+    public double tracked_lat = 0.0;
+    public double tracked_lng = 0.0;
+    public static String str_receiver = "de.appplant.cordova.plugin.background";
     Intent intent;
-
 
     public void updatePluginVariables(long interval, int afterLastUpdateMinutes, int minimumDistanceChanged) {
         notify_interval = notify_interval * interval;
@@ -59,6 +55,9 @@ public class LocationManagerService extends Service implements LocationListener 
 
     @Override
     public void onCreate() {
+
+        System.out.println("public void onCreate() {");
+
         super.onCreate();
         mTimer = new Timer();
         mTimer.schedule(new TimerTaskToGetLocation(), 1, notify_interval);
@@ -80,7 +79,6 @@ public class LocationManagerService extends Service implements LocationListener 
     }
 
     private void trackLocation() {
-        String TAG_TRACK_LOCATION = "trackLocation";
         stopSelf();
         mTimer.cancel();
     }
@@ -112,7 +110,7 @@ public class LocationManagerService extends Service implements LocationListener 
     /******************************/
 
     private void fn_getlocation() throws JSONException {
-
+        System.out.println("fn_getlocation");
         locationManager = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
         isGPSEnable = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
         isNetworkEnable = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
@@ -127,31 +125,23 @@ public class LocationManagerService extends Service implements LocationListener 
             location = null;
 
             if (isGPSEnable) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, minDistance, this);
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
                 if (locationManager != null) {
                     location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                     if (location != null) {
-                        latitude = location.getLatitude();
-                        longitude = location.getLongitude();
-                        track_lat = latitude;
-                        track_lng = longitude;
                         fn_update(location);
                     }
                 }
             }else if (isNetworkEnable) {
-                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, minTime, minDistance, this);
+                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);
                  if (locationManager != null) {
                      location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
                      if (location != null) {
-                         latitude = location.getLatitude();
-                         longitude = location.getLongitude();
-                         track_lat = latitude;
-                         track_lng = longitude;
                          fn_update(location);
                      }
                  }
              }
-            trackLocation();
+//            trackLocation();
         }
     }
 
@@ -174,9 +164,41 @@ public class LocationManagerService extends Service implements LocationListener 
 
     private void fn_update(Location location) throws JSONException {
 
-        intent.putExtra("latutide", location.getLatitude() + "");
-        intent.putExtra("longitude", location.getLongitude() + "");
+        System.out.println("private void fn_update(Location location) throws JSONException");
+
+        double lat = location.getLatitude();
+        double lng = location.getLongitude();
+
+        intent.putExtra("latutide", lat + "");
+        intent.putExtra("longitude", lng + "");
         sendBroadcast(intent);
+
+//        if(tracked_lat == lat && tracked_lng == lng) {
+//            return;
+//        }
+
+        if(tracked_lng != 0.00 && tracked_lng != 0.00) {
+
+            Location loc1 = new Location("");
+
+            loc1.setLatitude(tracked_lat);
+            loc1.setLongitude(tracked_lng);
+
+            Location loc2 = new Location("");
+            loc2.setLatitude(lat);
+            loc2.setLongitude(lng);
+
+            float distanceInMeters = loc1.distanceTo(loc2);
+
+            if(distanceInMeters <= minDistance) {
+                return;
+            }
+
+        }
+
+        // Set Lat Long when we get New Location
+        tracked_lat = lat;
+        tracked_lng = lng;
 
         JSONObject loc = new JSONObject() {{
             put("lat", location.getLatitude());

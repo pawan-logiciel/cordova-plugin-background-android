@@ -28,7 +28,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.IBinder;
 
 import org.apache.cordova.CallbackContext;
@@ -37,11 +38,22 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.apache.cordova.PermissionHelper;
 import de.appplant.cordova.plugin.background.ForegroundService.ForegroundBinder;
 import android.app.PendingIntent;
+import android.support.annotation.RequiresApi;
 import android.util.Log;
 import android.Manifest;
+import android.provider.Settings;
+
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
+
+import java.time.DayOfWeek;
+import java.util.Locale;
+
 import static android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD;
 
 import static android.content.Context.BIND_AUTO_CREATE;
@@ -79,9 +91,10 @@ public class BackgroundMode extends CordovaPlugin {
 
     String [] permissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
 
-    long interval =  10 * 60 * 1000; // Converted 1 minutes to miliSeconds
+    long interval =  10 * 60 * 1000; // Converted 10 minutes to miliSeconds
     int afterLastUpdateMinutes = 2 * 60 * 1000; // Min Time when last location fetched
     int minimumDistanceChanged = 200; // In Meters
+    JSONObject timeSlot;
 
     // Used to (un)bind the service to with the activity
     private final ServiceConnection connection = new ServiceConnection()
@@ -110,6 +123,7 @@ public class BackgroundMode extends CordovaPlugin {
      *
      * @return Returning false results in a "MethodNotFound" error.
      */
+    @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public boolean execute (String action, JSONArray args,
                             CallbackContext callbackContext)
@@ -117,7 +131,7 @@ public class BackgroundMode extends CordovaPlugin {
         this.callback = callbackContext;
         boolean validAction = true;
 
-		switch (action)
+        switch (action)
         {
             case "enable":
                 enableMode();
@@ -127,19 +141,38 @@ public class BackgroundMode extends CordovaPlugin {
                 break;
             case "startGettingBackgroundLocation":
 
+                System.out.println("startGettingBackgroundLocation");
+
                 try {
                     interval = args.getLong(0);
                     afterLastUpdateMinutes = args.getInt(1);
                     minimumDistanceChanged = args.getInt(2);
+                    timeSlot = args.getJSONObject(3);
 
-                    // Update Values to Location service.
-                    LocationManagerService locationService = new LocationManagerService();
-                    locationService.updatePluginVariables(interval, afterLastUpdateMinutes, minimumDistanceChanged);
+                    boolean canUpdateNow = canUpdateLocationNow();
 
+                    System.out.println("canUpdateNow");
+                    System.out.println(canUpdateNow);
+
+                    if(canUpdateNow){
+                        // Update Values to Location service.
+                        LocationManagerService locationService = new LocationManagerService();
+                        locationService.updatePluginVariables(interval, afterLastUpdateMinutes, minimumDistanceChanged);
+                        startLocationTracking();
+                    }
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
-                startLocationTracking();
+                break;
+            case "switchToAppGeneralSettings":
+
+                System.out.println("startGettingBackgroundLocation");
+
+                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                Uri uri = Uri.fromParts("package", cordova.getActivity().getPackageName(), null);
+                intent.setData(uri);
+                cordova.getActivity().startActivity(intent);
+
                 break;
             default:
                 validAction = false;
@@ -148,33 +181,102 @@ public class BackgroundMode extends CordovaPlugin {
         return validAction;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private boolean checkTime(String startTime, String endTime, String checkTime) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.US);
+        LocalTime startLocalTime = LocalTime.parse(startTime, formatter);
+        LocalTime endLocalTime = LocalTime.parse(endTime, formatter);
+        LocalTime checkLocalTime = LocalTime.parse(checkTime, formatter);
+
+        boolean isInBetween = false;
+        if (endLocalTime.isAfter(startLocalTime)) {
+            if (startLocalTime.isBefore(checkLocalTime) && endLocalTime.isAfter(checkLocalTime)) {
+                isInBetween = true;
+            }
+        } else if (checkLocalTime.isAfter(startLocalTime) || checkLocalTime.isBefore(endLocalTime)) {
+            isInBetween = true;
+        }
+
+        System.out.println("isInBetween");
+        System.out.println(isInBetween);
+       return  isInBetween;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    Boolean canUpdateLocationNow () throws JSONException {
+        Log.i("timeSlot", String.valueOf(timeSlot));
+        String startTimeFromSettings = timeSlot.getString("start_time");
+        String endTimeFromSettings = timeSlot.getString("end_time");
+        String allowedDaysFromSettings = timeSlot.getString("days").replace("[","").replace("]","");
+
+        List<String> allowedDaysArray = Arrays.asList(allowedDaysFromSettings.split(","));
+
+        LocalDateTime date = LocalDateTime.now();
+        DayOfWeek dayOfWeek = date.getDayOfWeek();
+        int dayOfWeekIntValue = dayOfWeek.getValue();
+
+        boolean canUpdateToday = false;
+
+        for (int i = 0; i < allowedDaysArray.size(); i++) {
+            if(allowedDaysArray.get(i).equals(String.valueOf(dayOfWeekIntValue))) {
+                canUpdateToday = true;
+            }
+        }
+
+        System.out.println("LocalTime.now()");
+        System.out.println(LocalTime.now());
+
+        if(canUpdateToday) {
+            return checkTime(startTimeFromSettings + ":00", endTimeFromSettings + ":00", Get24HTime() + ":00");
+        }
+
+        return false;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public String Get24HHour() {
+        return String.valueOf(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH")));
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public String GetMinutes() {
+        return String.valueOf(LocalDateTime.now().format(DateTimeFormatter.ofPattern("mm")));
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public String Get24HTime() {
+        return Get24HHour() + ":" + GetMinutes();
+    }
+
     @SuppressLint("ServiceCast")
     public  void startLocationTracking()
     {
 
-        if(hasPermisssion()){
-            startService();
-            processForegroundService();
-        }else  {
-            PermissionHelper.requestPermissions(this, 0, permissions);
-        }
-    }
-
-    public void onRequestPermissionResult(int requestCode, String[] permissions,
-                                          int[] grantResults) throws JSONException
-    {
-        PluginResult result;
-        //This is important if we're using Cordova without using Cordova, but we have the geolocation plugin installed
-        if(context != null) {
-            for (int r : grantResults) {
-                if (r == PackageManager.PERMISSION_DENIED) {
-                    return;
-                }
-            }
-        }
-
+//        if(hasPermisssion()){
+//            startService();
+//            processForegroundService();
+//        }else  {
+//            PermissionHelper.requestPermissions(this, 0, permissions);
+//        }
+        startService();
         processForegroundService();
     }
+
+//    public void onRequestPermissionResult(int requestCode, String[] permissions,
+//                                          int[] grantResults) throws JSONException
+//    {
+//        PluginResult result;
+//        //This is important if we're using Cordova without using Cordova, but we have the geolocation plugin installed
+//        if(context != null) {
+//            for (int r : grantResults) {
+//                if (r == PackageManager.PERMISSION_DENIED) {
+//                    return;
+//                }
+//            }
+//        }
+//
+//        processForegroundService();
+//    }
 
     public void processForegroundService() {
         Activity context = cordova.getActivity();
@@ -185,16 +287,16 @@ public class BackgroundMode extends CordovaPlugin {
                 pendingIntent);
     }
 
-    public boolean hasPermisssion() {
-        for(String p : permissions)
-        {
-            if(!PermissionHelper.hasPermission(this, p))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
+//    public boolean hasPermisssion() {
+//        for(String p : permissions)
+//        {
+//            if(!PermissionHelper.hasPermission(this, p))
+//            {
+//                return false;
+//            }
+//        }
+//        return true;
+//    }
 
     /**
      * Called when the system is about to start resuming a previous activity.
@@ -220,11 +322,11 @@ public class BackgroundMode extends CordovaPlugin {
         clearKeyguardFlags(cordova.getActivity());
     }
 
-	void clearKeyguardFlags (Activity app)
+    void clearKeyguardFlags (Activity app)
     {
         app.runOnUiThread(() -> app.getWindow().clearFlags(FLAG_DISMISS_KEYGUARD));
-	}
-	
+    }
+    
     /**
      * Called when the activity will start interacting with the user.
      *
@@ -302,8 +404,8 @@ public class BackgroundMode extends CordovaPlugin {
     private void stopService()
     {
         Activity context = cordova.getActivity();
-		Intent intent    = new Intent(context, ForegroundService.class);
-		Intent broadCasterIntent    = new Intent(context, BroadCasterService.class);
+        Intent intent    = new Intent(context, ForegroundService.class);
+        Intent broadCasterIntent    = new Intent(context, BroadCasterService.class);
 
         if (!isBind) return;
 
@@ -316,6 +418,9 @@ public class BackgroundMode extends CordovaPlugin {
 
 
     public void updateLocationData(JSONObject location) {
+
+        System.out.println("updateLocationData");
+
         PluginResult result = new PluginResult(PluginResult.Status.OK, location);
         result.setKeepCallback(true);
         callback.sendPluginResult(result);
