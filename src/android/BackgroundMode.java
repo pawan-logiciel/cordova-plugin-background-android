@@ -40,7 +40,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import de.appplant.cordova.plugin.background.ForegroundService.ForegroundBinder;
 import android.app.PendingIntent;
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.util.Log;
 import android.Manifest;
 import android.provider.Settings;
@@ -91,10 +91,10 @@ public class BackgroundMode extends CordovaPlugin {
 
     String [] permissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
 
-    long interval =  10 * 60 * 1000; // Converted 10 minutes to miliSeconds
-    int afterLastUpdateMinutes = 2 * 60 * 1000; // Min Time when last location fetched
-    int minimumDistanceChanged = 200; // In Meters
-    JSONObject timeSlot;
+    public static long interval =  10 * 60 * 1000; // Converted 10 minutes to miliSeconds
+    public static int afterLastUpdateMinutes = 2 * 60 * 1000; // Min Time when last location fetched
+    public static int minimumDistanceChanged = 25; // In Meters
+    public static JSONObject timeSlot;
 
     // Used to (un)bind the service to with the activity
     private final ServiceConnection connection = new ServiceConnection()
@@ -151,13 +151,8 @@ public class BackgroundMode extends CordovaPlugin {
 
                     boolean canUpdateNow = canUpdateLocationNow();
 
-                    System.out.println("canUpdateNow");
-                    System.out.println(canUpdateNow);
-
                     if(canUpdateNow){
                         // Update Values to Location service.
-                        LocationManagerService locationService = new LocationManagerService();
-                        locationService.updatePluginVariables(interval, afterLastUpdateMinutes, minimumDistanceChanged);
                         startLocationTracking();
                     }
                 } catch (JSONException e) {
@@ -418,8 +413,6 @@ public class BackgroundMode extends CordovaPlugin {
 
 
     public void updateLocationData(JSONObject location) {
-
-        System.out.println("updateLocationData");
 
         PluginResult result = new PluginResult(PluginResult.Status.OK, location);
         result.setKeepCallback(true);

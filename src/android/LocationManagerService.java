@@ -11,8 +11,8 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
+import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -34,18 +34,12 @@ public class LocationManagerService extends Service implements LocationListener 
 
     long notify_interval = 1 * 60 * 1000; // Converted 10 minutes to miliSeconds
     int minTime = 1 * 60 * 1000; // Min Time when last location fetched
-    int minDistance = 200;
+    int minDistance = 25;
 
     public double tracked_lat = 0.0;
     public double tracked_lng = 0.0;
     public static String str_receiver = "de.appplant.cordova.plugin.background";
     Intent intent;
-
-    public void updatePluginVariables(long interval, int afterLastUpdateMinutes, int minimumDistanceChanged) {
-        notify_interval = notify_interval * interval;
-        minTime = minTime * afterLastUpdateMinutes;
-        minDistance = minimumDistanceChanged;
-    }
 
     @Nullable
     @Override
@@ -55,10 +49,12 @@ public class LocationManagerService extends Service implements LocationListener 
 
     @Override
     public void onCreate() {
-
-        System.out.println("public void onCreate() {");
-
         super.onCreate();
+        BackgroundMode bg = new BackgroundMode();
+        System.out.println("bg.interval");
+
+        notify_interval = bg.interval * 60 * 1000;
+        System.out.println(notify_interval);
         mTimer = new Timer();
         mTimer.schedule(new TimerTaskToGetLocation(), 1, notify_interval);
         intent = new Intent(str_receiver);
@@ -85,11 +81,11 @@ public class LocationManagerService extends Service implements LocationListener 
 
     @Override
     public void onLocationChanged(Location location) {
-        try {
-            fn_update(location);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            fn_update(location);
+//        } catch (JSONException e) {
+//            e.printStackTrace();
+//        }
     }
 
     @Override
@@ -152,6 +148,11 @@ public class LocationManagerService extends Service implements LocationListener 
                 @Override
                 public void run() {
                     try {
+                        BackgroundMode bg = new BackgroundMode();
+                        notify_interval = bg.interval;
+                        minTime = bg.afterLastUpdateMinutes;
+                        minDistance = bg.minimumDistanceChanged;
+
                         fn_getlocation();
                     } catch (JSONException e) {
                         e.printStackTrace();
@@ -177,7 +178,7 @@ public class LocationManagerService extends Service implements LocationListener 
 //            return;
 //        }
 
-        if(tracked_lng != 0.00 && tracked_lng != 0.00) {
+        if(tracked_lat != 0.00 && tracked_lng != 0.00) {
 
             Location loc1 = new Location("");
 
@@ -190,9 +191,9 @@ public class LocationManagerService extends Service implements LocationListener 
 
             float distanceInMeters = loc1.distanceTo(loc2);
 
-            if(distanceInMeters <= minDistance) {
-                return;
-            }
+//            if(distanceInMeters <= minDistance) {
+//                return;
+//            }
 
         }
 
