@@ -85,6 +85,9 @@ public class BackgroundMode extends CordovaPlugin {
     // Default settings for the notification
     private static JSONObject defaultSettings = new JSONObject();
 
+    // Service that keeps the app awake
+    private ForegroundService service;
+
     String [] permissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
 
     public static long interval =  10 * 60 * 1000; // Converted 10 minutes to miliSeconds
@@ -92,6 +95,22 @@ public class BackgroundMode extends CordovaPlugin {
     public static int minimumDistanceChanged = 25; // In Meters
     public static JSONObject timeSlot;
 
+    // Used to (un)bind the service to with the activity
+    private final ServiceConnection connection = new ServiceConnection()
+    {
+        @Override
+        public void onServiceConnected (ComponentName name, IBinder service)
+        {
+//            ForegroundBinder binder = (ForegroundBinder) service;
+//            BackgroundMode.this.service = binder.getService();
+        }
+
+        @Override
+        public void onServiceDisconnected (ComponentName name)
+        {
+//            fireEvent(Event.FAILURE, "'service disconnected'");
+        }
+    };
 
     /**
      * Executes the request.
@@ -174,7 +193,7 @@ public class BackgroundMode extends CordovaPlugin {
 
         System.out.println("isInBetween");
         System.out.println(isInBetween);
-        return  isInBetween;
+       return  isInBetween;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -226,6 +245,14 @@ public class BackgroundMode extends CordovaPlugin {
     @SuppressLint("ServiceCast")
     public  void startLocationTracking()
     {
+
+//        if(hasPermisssion()){
+//            startService();
+//            processForegroundService();
+//        }else  {
+//            PermissionHelper.requestPermissions(this, 0, permissions);
+//        }
+        startService();
         processForegroundService();
     }
 
@@ -275,6 +302,7 @@ public class BackgroundMode extends CordovaPlugin {
     {
         try {
             inBackground = true;
+            startService();
         } finally {
             clearKeyguardFlags(cordova.getActivity());
         }
@@ -292,7 +320,7 @@ public class BackgroundMode extends CordovaPlugin {
     {
         app.runOnUiThread(() -> app.getWindow().clearFlags(FLAG_DISMISS_KEYGUARD));
     }
-
+    
     /**
      * Called when the activity will start interacting with the user.
      *
@@ -321,6 +349,10 @@ public class BackgroundMode extends CordovaPlugin {
     private void enableMode()
     {
         isDisabled = false;
+
+        if (inBackground) {
+            startService();
+        }
     }
 
     /**
@@ -338,6 +370,27 @@ public class BackgroundMode extends CordovaPlugin {
         return defaultSettings;
     }
 
+
+    /**
+     * Bind the activity to a background service and put them into foreground
+     * state.
+     */
+    private void startService()
+    {
+        Activity context = cordova.getActivity();
+
+        Intent intent = new Intent(context, ForegroundService.class);
+
+        try {
+            context.startService(intent);
+            context.bindService(intent, connection, BIND_AUTO_CREATE);
+        } catch (Exception e) {
+            //
+        }
+
+        isBind = true;
+    }
+
     /**
      * Bind the activity to a background service and put them into foreground
      * state.
@@ -345,11 +398,14 @@ public class BackgroundMode extends CordovaPlugin {
     private void stopService()
     {
         Activity context = cordova.getActivity();
+        Intent intent    = new Intent(context, ForegroundService.class);
         Intent broadCasterIntent    = new Intent(context, BroadCasterService.class);
         Intent locationManagerIntent    = new Intent(context, LocationManagerService.class);
 
         if (!isBind) return;
 
+        context.unbindService(connection);
+        context.stopService(intent);
         context.stopService(broadCasterIntent);
         context.stopService(locationManagerIntent);
 
@@ -363,7 +419,7 @@ public class BackgroundMode extends CordovaPlugin {
         System.out.println("------------------------------------------------------------------------");
         PluginResult result = new PluginResult(PluginResult.Status.OK, location);
         result.setKeepCallback(true);
-        if(result != null && this.callback != null) {
+        if(result != null) {
             this.callback.sendPluginResult(result);
         }
     }

@@ -27,10 +27,11 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
-import android.os.Binder;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.os.Binder;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -42,7 +43,9 @@ public class LocationManagerService extends Service implements LocationListener 
     private Context context;
     boolean isGPSEnable = false;
     boolean isNetworkEnable = false;
+    double latitude, longitude;
     LocationManager locationManager;
+    private BackgroundMode bgModeService;
     Location location;
     private Handler mHandler = new Handler();
     private Timer mTimer = null;
@@ -72,6 +75,8 @@ public class LocationManagerService extends Service implements LocationListener 
     // Default icon of the background notification
     private static final String NOTIFICATION_ICON = "icon";
 
+    // Binder given to clients
+//    private final IBinder binder = new ForegroundService.ForegroundBinder();
 
     // Partial wake lock to prevent the app from going to sleep when locked
     private PowerManager.WakeLock wakeLock;
@@ -159,14 +164,14 @@ public class LocationManagerService extends Service implements LocationListener 
                     }
                 }
             }else if (isNetworkEnable) {
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);
-                if (locationManager != null) {
-                    location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                    if (location != null) {
-                        fn_update(location);
-                    }
-                }
-            }
+                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);
+                 if (locationManager != null) {
+                     location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                     if (location != null) {
+                         fn_update(location);
+                     }
+                 }
+             }
 //            trackLocation();
         }
     }
@@ -478,4 +483,6 @@ public class LocationManagerService extends Service implements LocationListener 
     {
         return (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
     }
+
+
 }
