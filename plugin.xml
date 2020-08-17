@@ -66,10 +66,6 @@
         <config-file target="res/xml/config.xml" parent="/*">
             <preference name="KeepRunning" value="true" />
         </config-file>
-
-        <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <service android:name="de.appplant.cordova.plugin.background.ForegroundService" />
-        </config-file>
 		
 		<config-file target="AndroidManifest.xml" parent="/manifest/application">
             <service android:name="de.appplant.cordova.plugin.background.LocationManagerService"/>
@@ -91,10 +87,6 @@
 
         <source-file
             src="src/android/BackgroundMode.java"
-            target-dir="src/de/appplant/cordova/plugin/background" />
-			
-        <source-file
-            src="src/android/ForegroundService.java"
             target-dir="src/de/appplant/cordova/plugin/background" />
 
         <source-file
