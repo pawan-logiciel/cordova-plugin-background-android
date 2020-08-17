@@ -419,7 +419,7 @@ public class BackgroundMode extends CordovaPlugin {
         System.out.println("------------------------------------------------------------------------");
         PluginResult result = new PluginResult(PluginResult.Status.OK, location);
         result.setKeepCallback(true);
-        if(result != null) {
+        if(result != null && this.callback != null) {
             this.callback.sendPluginResult(result);
         }
     }
