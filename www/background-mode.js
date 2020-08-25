@@ -41,7 +41,7 @@ var exec    = require('cordova/exec'),
      */
     exports.disable = function()
     {
-        cordova.exec(fn, null, 'BackgroundMode', 'disable', []);
+        cordova.exec(null, null, 'BackgroundMode', 'disable', []);
     };
 
     /**
