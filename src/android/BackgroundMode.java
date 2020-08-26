@@ -44,14 +44,19 @@ import android.util.Log;
 import android.Manifest;
 import android.provider.Settings;
 
+import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 import java.time.DayOfWeek;
 import java.util.Locale;
+
+import java.text.SimpleDateFormat;
 
 import static android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD;
 
@@ -122,7 +127,6 @@ public class BackgroundMode extends CordovaPlugin {
      *
      * @return Returning false results in a "MethodNotFound" error.
      */
-    @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public boolean execute (String action, JSONArray args,
                             CallbackContext callbackContext)
@@ -147,8 +151,16 @@ public class BackgroundMode extends CordovaPlugin {
                     afterLastUpdateMinutes = args.getInt(1);
                     minimumDistanceChanged = args.getInt(2);
                     timeSlot = args.getJSONObject(3);
+                    boolean canUpdateNow = false;
 
-                    boolean canUpdateNow = canUpdateLocationNow();
+                    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        canUpdateNow = canUpdateLocationNowForAndroidEightAndAbove();
+                    }else {
+                        canUpdateNow = canUpdateLocationNowForSevenAndBelow();
+                    }
+
+                    System.out.println("canUpdateNow");
+                    System.out.println(canUpdateNow);
 
                     if(canUpdateNow){
                         // Update Values to Location service.
@@ -176,7 +188,7 @@ public class BackgroundMode extends CordovaPlugin {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
-    private boolean checkTime(String startTime, String endTime, String checkTime) {
+    private boolean checkTimeForAndroidEightOrAbove(String startTime, String endTime, String checkTime) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.US);
         LocalTime startLocalTime = LocalTime.parse(startTime, formatter);
         LocalTime endLocalTime = LocalTime.parse(endTime, formatter);
@@ -191,13 +203,50 @@ public class BackgroundMode extends CordovaPlugin {
             isInBetween = true;
         }
 
-        System.out.println("isInBetween");
+        System.out.println("isInBetween 203");
         System.out.println(isInBetween);
        return  isInBetween;
     }
 
+
+    private boolean checkTimeForAndroidSevenOrBelow(String startTime, String endTime, String checkTime) {
+        boolean isInBetween = false;
+
+        try {
+            Date time1 = new SimpleDateFormat("HH:mm:ss").parse(startTime);
+            Calendar calendar1 = Calendar.getInstance();
+            calendar1.setTime(time1);
+            calendar1.add(Calendar.DATE, 1);
+
+
+            Date time2 = new SimpleDateFormat("HH:mm:ss").parse(endTime);
+            Calendar calendar2 = Calendar.getInstance();
+            calendar2.setTime(time2);
+            calendar2.add(Calendar.DATE, 1);
+
+            Date d = new SimpleDateFormat("HH:mm:ss").parse(checkTime);
+            Calendar calendar3 = Calendar.getInstance();
+            calendar3.setTime(d);
+            calendar3.add(Calendar.DATE, 1);
+
+            Date x = calendar3.getTime();
+            if (x.after(calendar1.getTime()) && x.before(calendar2.getTime())) {
+                //checkes whether the current time is between 14:49:00 and 20:11:13.
+                isInBetween = true;
+            }
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("isInBetween");
+        System.out.println(isInBetween);
+
+        return  isInBetween;
+    }
+
+
     @RequiresApi(api = Build.VERSION_CODES.O)
-    Boolean canUpdateLocationNow () throws JSONException {
+    Boolean canUpdateLocationNowForAndroidEightAndAbove () throws JSONException {
         Log.i("timeSlot", String.valueOf(timeSlot));
         String startTimeFromSettings = timeSlot.getString("start_time");
         String endTimeFromSettings = timeSlot.getString("end_time");
@@ -219,27 +268,60 @@ public class BackgroundMode extends CordovaPlugin {
 
         System.out.println("LocalTime.now()");
         System.out.println(LocalTime.now());
-
         if(canUpdateToday) {
-            return checkTime(startTimeFromSettings + ":00", endTimeFromSettings + ":00", Get24HTime() + ":00");
+            return checkTimeForAndroidEightOrAbove(startTimeFromSettings + ":00", endTimeFromSettings + ":00", Get24HTime() + ":00");
         }
 
         return false;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    public String Get24HHour() {
-        return String.valueOf(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH")));
+    Boolean canUpdateLocationNowForSevenAndBelow () throws JSONException {
+        Log.i("timeSlot", String.valueOf(timeSlot));
+        String startTimeFromSettings = timeSlot.getString("start_time");
+        String endTimeFromSettings = timeSlot.getString("end_time");
+        String allowedDaysFromSettings = timeSlot.getString("days").replace("[","").replace("]","");
+
+        List<String> allowedDaysArray = Arrays.asList(allowedDaysFromSettings.split(","));
+
+        Date now = new Date();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(now);
+        System.out.println(calendar.get(Calendar.DAY_OF_WEEK));
+
+        boolean canUpdateToday = false;
+
+        for (int i = 0; i < allowedDaysArray.size(); i++) {
+            if(allowedDaysArray.get(i).equals(String.valueOf(calendar.get(Calendar.DAY_OF_WEEK)))) {
+                canUpdateToday = true;
+            }
+        }
+
+        if(canUpdateToday) {
+            return checkTimeForAndroidSevenOrBelow(startTimeFromSettings + ":00", endTimeFromSettings + ":00", Get24HTime() + ":00");
+        }
+
+        return false;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
+    public String Get24Hour() {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return String.valueOf(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH")));
+        }else {
+            return new SimpleDateFormat("kk").format(new Date());
+        }
+    }
+
     public String GetMinutes() {
-        return String.valueOf(LocalDateTime.now().format(DateTimeFormatter.ofPattern("mm")));
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return String.valueOf(LocalDateTime.now().format(DateTimeFormatter.ofPattern("mm")));
+        }else {
+            return new SimpleDateFormat("mm").format(new Date());
+        }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
     public String Get24HTime() {
-        return Get24HHour() + ":" + GetMinutes();
+        return Get24Hour() + ":" + GetMinutes();
     }
 
     @SuppressLint("ServiceCast")
