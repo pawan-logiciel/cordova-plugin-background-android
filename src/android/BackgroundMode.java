@@ -189,7 +189,7 @@ public class BackgroundMode extends CordovaPlugin {
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     private boolean checkTimeForAndroidEightOrAbove(String startTime, String endTime, String checkTime) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.US);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.getDefault());
         LocalTime startLocalTime = LocalTime.parse(startTime, formatter);
         LocalTime endLocalTime = LocalTime.parse(endTime, formatter);
         LocalTime checkLocalTime = LocalTime.parse(checkTime, formatter);
