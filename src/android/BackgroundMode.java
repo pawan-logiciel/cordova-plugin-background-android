@@ -490,7 +490,7 @@ public class BackgroundMode extends CordovaPlugin {
         context.stopService(intent);
         context.stopService(broadCasterIntent);
         context.stopService(locationManagerIntent);
-
+        alarmManager.cancel(pendingIntent);
         isBind = false;
     }
 
