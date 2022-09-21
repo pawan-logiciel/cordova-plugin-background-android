@@ -358,7 +358,7 @@ public class BackgroundMode extends CordovaPlugin {
         Activity context = cordova.getActivity();
         alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(context, BroadCasterService.class);
-        pendingIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
+        pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 30000,
                 pendingIntent);
     }
